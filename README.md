@@ -1,5 +1,7 @@
 # popup — one-hotkey sticky note
 
+![popup logo](logo.png)
+
 Minimal Raycast-Notes-style sticky for macOS. One global hotkey toggles a small
 mono-font panel. Auto-saves to `~/Documents/Popup.md`. MIT open source.
 
