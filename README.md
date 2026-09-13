@@ -5,7 +5,7 @@
 Minimal Raycast-Notes-style sticky for macOS. One global hotkey toggles a small
 mono-font panel. Auto-saves to `~/Documents/Popup.md`. MIT open source.
 
-Default: Gruvbox Dark, JetBrains Mono 14px, `Command+Shift+Space`.
+Default: Gruvbox Dark, JetBrains Mono 14px, `Command+Option+=`.
 
 ## Dev
 
