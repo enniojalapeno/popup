@@ -26,6 +26,18 @@ fn toggle_app(app: tauri::AppHandle) {
     }
 }
 
+/// Hide from Dock + Cmd+Tab (macOS only) — Raycast-style background app.
+/// Reachable via menu-bar tray icon + global hotkey only.
+#[cfg(target_os = "macos")]
+fn hide_from_dock() {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
+    if let Some(mtm) = MainThreadMarker::new() {
+        let app = NSApplication::sharedApplication(mtm);
+        let _ = app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -34,6 +46,10 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            // Hide from Dock + Cmd+Tab — tray icon + hotkey only
+            #[cfg(target_os = "macos")]
+            hide_from_dock();
+
             // Tray icon — custom taskbar icon, click to show, right-click for quit menu
             let quit_item = tauri::menu::MenuItemBuilder::new("Quit")
                 .id("quit")
