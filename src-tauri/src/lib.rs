@@ -1,3 +1,4 @@
+use tauri::image::Image;
 use tauri::Manager;
 use tauri::tray::TrayIconBuilder;
 
@@ -25,17 +26,6 @@ fn toggle_app(app: tauri::AppHandle) {
     }
 }
 
-/// Hide from Dock + Cmd+Tab (macOS only).
-#[cfg(target_os = "macos")]
-fn hide_from_dock() {
-    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
-    use objc2::MainThreadMarker;
-    if let Some(mtm) = MainThreadMarker::new() {
-        let app = NSApplication::sharedApplication(mtm);
-        let _ = app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
-    }
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -44,11 +34,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            // Hide from Dock — only reachable via hotkey + tray icon
-            #[cfg(target_os = "macos")]
-            hide_from_dock();
-
-            // Tray icon — click to show, right-click for quit menu
+            // Tray icon — custom taskbar icon, click to show, right-click for quit menu
             let quit_item = tauri::menu::MenuItemBuilder::new("Quit")
                 .id("quit")
                 .build(app)?;
@@ -56,7 +42,9 @@ pub fn run() {
                 .item(&quit_item)
                 .build()?;
 
+            let tray_image = Image::from_bytes(include_bytes!("../icons/tray-icon.png"))?;
             let _tray = TrayIconBuilder::new()
+                .icon(tray_image)
                 .menu(&tray_menu)
                 .tooltip("popup — Option+⌘+= to toggle")
                 .on_menu_event(move |app, event| {
