@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "popup ${{ github.ref_name }}"
+          releaseBody: "See the assets to download and install this version."
+          releaseDraft: false
+          prerelease: false
+          args: "--target aarch64-apple-darwin --bundles app,dmg"
+
+      - name: Update Homebrew tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          # Find the DMG and compute its SHA-256
+          DMG=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" | head -1)
+          SHA=$(shasum -a 256 "$DMG" | awk '{print $1}')
+
+          # Update the cask file in the tap repo
+          TAP_DIR="$RUNNER_TEMP/homebrew-popup"
+          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/enniojalapeno/homebrew-popup.git "$TAP_DIR"
+
+          cat > "$TAP_DIR/Casks/popup.rb" <<CASK
+          cask "popup" do
+            version "${VERSION}"
+            sha256 "${SHA}"
+
+            url "https://github.com/enniojalapeno/popup/releases/download/v#{version}/popup_#{version}_aarch64.dmg"
+            name "popup"
+            desc "One-hotkey sticky note for macOS"
+            homepage "https://github.com/enniojalapeno/popup"
+
+            depends_on macos: ">= :ventura"
+
+            app "popup.app"
+
+            zap trash: [
+              "~/Library/Caches/com.popup.app",
+              "~/Library/WebKit/com.popup.app",
+              "~/Documents/Popup.md",
+            ]
+          end
+          CASK
+
+          cd "$TAP_DIR"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "popup ${VERSION}"
+          git push
